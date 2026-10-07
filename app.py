@@ -16,7 +16,7 @@ load_dotenv()
 
 DATABASE_PATH = "registros.db"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "thinkingmachines/inkling-small:free"
+OPENROUTER_MODEL = "google/gemma-4-26b-a4b-it:free"
 DOCUMENT_TYPES = [
     "Cédula de Ciudadanía",
     "Dron (Serial S/N)",
@@ -145,7 +145,16 @@ def extract_code_from_image(image_file, document_type: str) -> VLMResult:
     }
     with httpx.Client(timeout=60) as client:
         response = client.post(OPENROUTER_URL, headers=headers, json=request)
-        response.raise_for_status()
+        if response.is_error:
+            try:
+                error_payload = response.json()
+                error_detail = error_payload.get("error", {}).get("message")
+            except (ValueError, AttributeError):
+                error_detail = None
+            error_detail = error_detail or response.text[:500] or "sin detalle"
+            raise RuntimeError(
+                f"OpenRouter respondió HTTP {response.status_code}: {error_detail}"
+            )
     return parse_vlm_response(response)
 
 
