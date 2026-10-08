@@ -16,7 +16,7 @@ load_dotenv()
 
 DATABASE_PATH = "registros.db"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "openai/gpt-5-nano:batch"
+OPENROUTER_MODEL = "qwen/qwen3.7-flash"
 DOCUMENT_TYPES = [
     "Cédula de Ciudadanía",
     "Dron (Serial S/N)",
