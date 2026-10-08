@@ -16,7 +16,7 @@ load_dotenv()
 
 DATABASE_PATH = "registros.db"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "google/gemma-4-26b-a4b-it:free"
+OPENROUTER_MODEL = "google/gemma-3-4b-it"
 DOCUMENT_TYPES = [
     "Cédula de Ciudadanía",
     "Dron (Serial S/N)",
