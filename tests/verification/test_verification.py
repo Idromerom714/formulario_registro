@@ -9,7 +9,7 @@ from core.verification.imagen import ImageValidationError, sanear_imagen
 from core.verification.rules import decidir_documento, decidir_serial, normalizar_nombre
 from core.verification.schemas import ExtraccionDocumento, ExtraccionSerial
 from core.verification.service import verificar_documento, verificar_serial
-from core.verification.vlm import JSONInvalidoError
+from core.verification.vlm import JSONInvalidoError, OpenRouterVLM
 
 
 def png_bytes(size=(20, 20)):
@@ -132,3 +132,43 @@ def test_invalid_reader_payload_is_review():
 
     result = verificar_serial(png_bytes(), "image/png", "AB123", FakeProvider(error=AssertionError()), Reader())
     assert result.motivo == "json_invalido"
+
+
+def test_openrouter_retries_json_and_does_not_receive_expected_value(monkeypatch):
+    responses = [
+        {"choices": [{"message": {"content": "not-json"}}]},
+        {"choices": [{"message": {"content": '{"serial":"AB123","legible":true,"caracteres_ambiguos":[],"confianza":0.99}'}}]},
+    ]
+    requests = []
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    class Client:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def post(self, url, json):
+            requests.append(json)
+            return Response(responses.pop(0))
+
+    monkeypatch.setattr("core.verification.vlm.httpx.Client", Client)
+    provider = OpenRouterVLM("qwen/qwen3.7-flash", "secret", 30, max_reintentos=1)
+    result = provider.extraer_serial(b"image", "image/png")
+
+    assert result.serial == "AB123"
+    assert len(requests) == 2
+    assert "1234567890" not in str(requests[0])

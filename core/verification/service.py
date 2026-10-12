@@ -8,7 +8,13 @@ from .config import get_settings
 from .imagen import ImageValidationError, sanear_imagen
 from .rules import decidir_documento, decidir_serial, normalizar_nombre
 from .schemas import ExtraccionDocumento, ExtraccionSerial, ResultadoVerificacion
-from .vlm import ErrorProveedor, JSONInvalidoError, LectorDeterminista, VLMProvider
+from .vlm import (
+    ErrorProveedor,
+    JSONInvalidoError,
+    LectorDeterminista,
+    OpenRouterVLM,
+    VLMProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +95,12 @@ def verificar_serial(imagen: bytes, mime: str, serial_ingresado: str,
 
 
 def _default_provider(settings: Any) -> VLMProvider:
-    from .vlm import AnthropicVLM
     if not settings.vlm_api_key:
         raise ErrorProveedor("API key no configurada")
-    return AnthropicVLM(settings.vlm_model, settings.vlm_api_key, settings.vlm_timeout_s, settings.vlm_max_reintentos)
+    return OpenRouterVLM(
+        settings.vlm_model,
+        settings.vlm_api_key,
+        settings.vlm_timeout_s,
+        settings.vlm_max_reintentos,
+        settings.vlm_base_url or "https://openrouter.ai/api/v1",
+    )

@@ -2,6 +2,8 @@ import base64
 import json
 from typing import Any, Protocol, cast
 
+import httpx
+
 from .schemas import ExtraccionDocumento, ExtraccionSerial
 
 
@@ -34,30 +36,54 @@ SYSTEM_PROMPT = (
 )
 
 
-class AnthropicVLM:
-    def __init__(self, model: str, api_key: str, timeout_s: float, max_reintentos: int = 1) -> None:
-        try:
-            import anthropic
-        except ImportError as exc:
-            raise ErrorProveedor("SDK de Anthropic no instalado") from exc
+class OpenRouterVLM:
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        timeout_s: float,
+        max_reintentos: int = 1,
+        base_url: str = "https://openrouter.ai/api/v1",
+    ) -> None:
         self.modelo = model
         self.max_reintentos = max_reintentos
-        self._client = anthropic.Anthropic(api_key=api_key, timeout=timeout_s)
+        self.timeout_s = timeout_s
+        self.base_url = base_url.rstrip("/")
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://sua.antioquia.gov.co",
+            "X-Title": "SUA - Verificacion documental",
+        }
 
     def _request(self, imagen: bytes, mime: str, schema: str, instruction: str) -> dict[str, Any]:
         encoded = base64.b64encode(imagen).decode("ascii")
+        request = {
+            "model": self.modelo,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"{instruction} Esquema exacto: {schema}"},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{encoded}"},
+                        },
+                    ],
+                },
+            ],
+            "max_tokens": 700,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        }
         for attempt in range(self.max_reintentos + 1):
             try:
-                response = self._client.messages.create(
-                    model=self.modelo,
-                    max_tokens=700,
-                    system=SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": cast(Any, [
-                        {"type": "text", "text": f"{instruction} Esquema exacto: {schema}"},
-                        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": encoded}},
-                    ])}],
-                )
-                text = "".join(getattr(block, "text", "") for block in response.content).strip()
+                with httpx.Client(timeout=self.timeout_s, headers=self.headers) as client:
+                    response = client.post(f"{self.base_url}/chat/completions", json=request)
+                    response.raise_for_status()
+                    response_payload = response.json()
+                text = _response_text(response_payload)
                 payload = json.loads(text)
                 if not isinstance(payload, dict):
                     raise JSONInvalidoError("respuesta JSON invalida")
@@ -65,6 +91,10 @@ class AnthropicVLM:
             except json.JSONDecodeError as exc:
                 if attempt >= self.max_reintentos:
                     raise JSONInvalidoError("respuesta JSON invalida") from exc
+            except JSONInvalidoError:
+                raise
+            except httpx.HTTPError as exc:
+                raise ErrorProveedor("fallo del proveedor VLM") from exc
             except Exception as exc:
                 raise ErrorProveedor("fallo del proveedor VLM") from exc
         raise JSONInvalidoError("respuesta JSON invalida")
@@ -76,3 +106,17 @@ class AnthropicVLM:
     def extraer_serial(self, imagen: bytes, mime: str) -> ExtraccionSerial:
         payload = self._request(imagen, mime, SERIAL_SCHEMA, "Extrae la placa o serial visible.")
         return ExtraccionSerial.model_validate(payload)
+
+
+def _response_text(payload: Any) -> str:
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ErrorProveedor("respuesta invalida del proveedor VLM") from exc
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        text = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+        if text:
+            return text.strip()
+    raise ErrorProveedor("respuesta invalida del proveedor VLM")

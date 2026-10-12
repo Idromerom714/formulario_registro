@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class VerificationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="", case_sensitive=False, extra="ignore")
 
-    vlm_provider: Literal["anthropic", "openrouter"] = "anthropic"
+    vlm_provider: Literal["openrouter"] = "openrouter"
     # OpenRouter model identifiers commonly use the provider/model form.
     vlm_model: str = Field(..., min_length=1)
     vlm_api_key: str | None = Field(
