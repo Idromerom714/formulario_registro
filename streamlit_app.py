@@ -1,7 +1,9 @@
-import os
 
 import streamlit as st
+from dotenv import load_dotenv
+from pydantic import ValidationError
 
+from core.verification.config import get_settings
 from core.verification.schemas import ResultadoVerificacion
 from core.verification.service import verificar_documento, verificar_serial
 
@@ -9,6 +11,18 @@ DOCUMENT_TYPES = {
     "Cedula de piloto o tecnico": "documento",
     "Placa o serial de UAS/componente": "serial",
 }
+
+
+def _configuration_error() -> str | None:
+    try:
+        settings = get_settings()
+    except ValidationError:
+        return "Falta configurar VLM_MODEL con el identificador del modelo OpenRouter."
+    if settings.vlm_provider != "openrouter":
+        return "VLM_PROVIDER debe ser openrouter."
+    if not settings.vlm_api_key:
+        return "Falta configurar OPENROUTER_API_KEY o VLM_API_KEY."
+    return None
 
 
 def _reset_when_input_changes(value: str) -> None:
@@ -44,6 +58,7 @@ def _show_result(result: ResultadoVerificacion, kind: str) -> None:
 
 
 def main() -> None:
+    load_dotenv()
     st.set_page_config(page_title="Verificacion documental SUA", page_icon="SUA", layout="centered")
     st.title("Verificacion documental SUA")
     st.caption("Validacion de cedulas, placas y seriales mediante vision artificial.")
@@ -66,23 +81,31 @@ def main() -> None:
 
     can_verify = bool(image and entered_value.strip())
     if st.button("Verificar", type="primary", disabled=not can_verify, use_container_width=True):
-        try:
-            image_bytes = image.getvalue()
-            mime = image.type or ""
-            with st.spinner("Analizando la imagen..."):
-                if kind == "documento":
-                    result = verificar_documento(
-                        image_bytes,
-                        mime,
-                        selected_type,
-                        entered_value,
-                    )
-                else:
-                    result = verificar_serial(image_bytes, mime, entered_value)
-            _show_result(result, kind)
-        except Exception:  # noqa: BLE001 - la interfaz debe contener fallos de configuracion o entrada
+        configuration_error = _configuration_error()
+        if configuration_error:
             st.session_state["verified"] = False
-            st.error("No fue posible iniciar la verificacion. Revisa la configuracion del proveedor.")
+            st.error(configuration_error)
+        else:
+            try:
+                image_bytes = image.getvalue()
+                mime = image.type or ""
+                with st.spinner("Analizando la imagen..."):
+                    if kind == "documento":
+                        result = verificar_documento(
+                            image_bytes,
+                            mime,
+                            selected_type,
+                            entered_value,
+                        )
+                    else:
+                        result = verificar_serial(image_bytes, mime, entered_value)
+                _show_result(result, kind)
+            except ValidationError:
+                st.session_state["verified"] = False
+                st.error("La configuracion requiere VLM_MODEL con un modelo OpenRouter valido.")
+            except Exception:  # noqa: BLE001 - la interfaz debe contener fallos de red o entrada
+                st.session_state["verified"] = False
+                st.error("No fue posible contactar OpenRouter. Revisa la clave, el modelo y la conexion.")
 
     result = st.session_state.get("verification_result")
     if isinstance(result, ResultadoVerificacion) and result.estado == "verificado":
@@ -97,8 +120,9 @@ def main() -> None:
     elif isinstance(result, ResultadoVerificacion):
         st.info("Este resultado requiere revision humana; no se habilita como verificado automaticamente.")
 
-    if not os.getenv("VLM_MODEL"):
-        st.caption("Configura VLM_MODEL para habilitar el proveedor VLM.")
+    configuration_error = _configuration_error()
+    if configuration_error:
+        st.caption(configuration_error)
 
 
 if __name__ == "__main__":
