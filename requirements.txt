@@ -1,4 +1,10 @@
 streamlit
 httpx
-pydantic
+pydantic>=2
 python-dotenv
+pydantic-settings
+Pillow
+anthropic
+pytest
+ruff
+mypy
