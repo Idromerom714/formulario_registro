@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semillero UAS — Registro verificado</title>
+<style>
+  :root {
+    --azul: #1d4ed8;
+    --azul-oscuro: #1e3a8a;
+    --gris-texto: #44403c;
+    --gris-claro: #f5f5f4;
+    --borde: #e7e5e4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    background: var(--gris-claro);
+    color: #1c1917;
+  }
+
+  /* =======================================================
+     PANTALLA 1: inicio de sesión (solo visual, sin backend)
+     ======================================================= */
+  #pantalla-login {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(59,130,246,.18), transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(14,165,233,.15), transparent 45%),
+      linear-gradient(160deg, #020617, #0b1b3d 55%, #0f2a57);
+    padding: 24px;
+  }
+  .login-caja {
+    width: 100%;
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    background: rgba(8, 15, 35, .55);
+    border: 1px solid rgba(148, 163, 184, .25);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,.45);
+    backdrop-filter: blur(6px);
+  }
+  .login-ilustracion {
+    position: relative;
+    padding: 40px 36px;
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(200deg, rgba(29,78,216,.35), rgba(2,6,23,0));
+  }
+  .login-marca {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .login-marca .icono-dron {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #38bdf8, #1d4ed8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+  }
+  .login-marca strong { display: block; font-size: 1rem; letter-spacing: .03em; }
+  .login-marca span { display: block; font-size: .75rem; color: #93c5fd; }
+
+  .login-grafico {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5.5rem;
+    opacity: .85;
+    filter: drop-shadow(0 0 30px rgba(56,189,248,.35));
+  }
+  .login-pie-texto {
+    font-size: .85rem;
+    color: #94a3b8;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+
+  .login-formulario {
+    background: #ffffff;
+    padding: 44px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .login-formulario h1 {
+    margin: 0 0 4px;
+    font-size: 1.45rem;
+    color: #0f172a;
+  }
+  .login-formulario p.subtitulo {
+    margin: 0 0 28px;
+    font-size: .88rem;
+    color: #64748b;
+  }
+  .campo { margin-bottom: 18px; }
+  .campo label {
+    display: block;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .campo input {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: .92rem;
+    outline: none;
+  }
+  .campo input:focus {
+    border-color: var(--azul);
+    box-shadow: 0 0 0 3px rgba(29,78,216,.12);
+  }
+  .login-opciones {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .8rem;
+    color: #64748b;
+    margin-bottom: 22px;
+  }
+  .login-opciones label { display: flex; align-items: center; gap: 6px; cursor: default; }
+
+  .boton-ingresar {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--azul);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .boton-ingresar:hover { background: var(--azul-oscuro); }
+
+  .login-nota {
+    margin-top: 18px;
+    font-size: .76rem;
+    color: #94a3b8;
+    text-align: center;
+  }
+
+  @media (max-width: 760px) {
+    .login-caja { grid-template-columns: 1fr; }
+    .login-ilustracion { display: none; }
+  }
+
+  /* =======================================================
+     PANTALLA 2: selección de módulos (lo que ya existía)
+     ======================================================= */
+  #pantalla-modulos { display: none; }
+
+  header {
+    background: linear-gradient(135deg, var(--azul-oscuro), var(--azul));
+    color: white;
+    padding: 48px 24px 56px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 1.9rem; }
+  header p { margin: 0; color: #dbeafe; font-size: 1rem; max-width: 640px; margin: 0 auto; }
+
+  main {
+    max-width: 920px;
+    margin: -32px auto 48px;
+    padding: 0 24px;
+  }
+  .modulos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .tarjeta {
+    background: white;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    display: flex;
+    flex-direction: column;
+  }
+  .tarjeta .etiqueta {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--azul);
+    background: #dbeafe;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+    width: fit-content;
+  }
+  .tarjeta h2 { margin: 0 0 8px; font-size: 1.25rem; }
+  .tarjeta p.desc { color: var(--gris-texto); font-size: .92rem; line-height: 1.5; margin: 0 0 16px; }
+  .tarjeta .como-correr {
+    background: var(--gris-claro);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: .82rem;
+    color: #292524;
+    margin-bottom: 16px;
+  }
+  .tarjeta .como-correr strong { display: block; margin-bottom: 4px; color: #1c1917; }
+  .tarjeta .como-correr code {
+    display: block;
+    background: #1c1917;
+    color: #e7e5e4;
+    padding: 6px 8px;
+    border-radius: 5px;
+    margin-top: 4px;
+    font-size: .78rem;
+    overflow-x: auto;
+  }
+  .tarjeta a.abrir {
+    margin-top: auto;
+    display: inline-block;
+    text-align: center;
+    background: var(--azul);
+    color: white;
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .9rem;
+  }
+  .tarjeta a.abrir:hover { background: var(--azul-oscuro); }
+
+  footer {
+    text-align: center;
+    color: #78716c;
+    font-size: .82rem;
+    padding: 0 24px 40px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== PANTALLA 1: LOGIN ===================== -->
+<!-- Esta pantalla es SOLO visual: el botón "Ingresar" no valida nada
+     contra un servidor, solo pasa a la pantalla 2 con JavaScript.
+     No hay usuarios reales todavía; eso quedaría para una fase futura. -->
+<section id="pantalla-login">
+  <div class="login-caja">
+
+    <div class="login-ilustracion">
+      <div class="login-marca">
+        <div class="icono-dron">🛰️</div>
+        <div>
+          <strong>SEMILLERO UAS</strong>
+          <span>Plataforma de Registro Verificado</span>
+        </div>
+      </div>
+
+      <div class="login-grafico">🛸</div>
+
+      <p class="login-pie-texto">
+        Proyecto académico del semillero de investigación. No es un sistema
+        oficial de Aerocivil ni de ninguna entidad gubernamental: es un
+        prototipo propio construido para fines de aprendizaje.
+      </p>
+    </div>
+
+    <div class="login-formulario">
+      <h1>Iniciar sesión</h1>
+      <p class="subtitulo">Ingresá tus credenciales para continuar al sistema.</p>
+
+      <form id="form-login">
+        <div class="campo">
+          <label for="usuario">Usuario</label>
+          <input type="text" id="usuario" placeholder="Ingresá tu usuario" autocomplete="username">
+        </div>
+        <div class="campo">
+          <label for="clave">Contraseña</label>
+          <input type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <div class="login-opciones">
+          <label><input type="checkbox"> Recordarme</label>
+          <span>¿Olvidaste tu contraseña?</span>
+        </div>
+
+        <button type="submit" class="boton-ingresar">Ingresar</button>
+      </form>
+
+      <p class="login-nota">Esta pantalla es solo visual por ahora — no valida usuarios reales.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===================== PANTALLA 2: MÓDULOS ===================== -->
+<section id="pantalla-modulos">
+
+  <header>
+    <h1>Sistema de Registro Verificado — Semillero UAS</h1>
+    <p>Punto de entrada a los módulos del proyecto. Cada módulo corre como un servicio independiente en tu máquina: iniciá el que necesites con las instrucciones de su tarjeta.</p>
+  </header>
+
+  <main>
+    <div class="modulos">
+
+      <div class="tarjeta">
+        <span class="etiqueta">Streamlit · OpenRouter</span>
+        <h2>Registro general</h2>
+        <p class="desc">
+          Verifica Cédula de Ciudadanía, Serial de Dron o Batería/Componente a partir de una foto,
+          y guarda el registro verificado en una base de datos local.
+        </p>
+        <div class="como-correr">
+          <strong>Cómo correrlo:</strong>
+          instalá dependencias y arrancalo desde la raíz del repo:
+          <code>pip install -r requirements.txt
+y streamlit run app.py</code>
+        </div>
+        <a class="abrir" href="http://localhost:8501" target="_blank" rel="noopener">Abrir módulo (localhost:8501)</a>
+      </div>
+
+      <div class="tarjeta">
+        <span class="etiqueta">FastAPI · OpenRouter</span>
+        <h2>Verificación de Serial de Dron</h2>
+        <p class="desc">
+          Compara el serial escrito por el usuario contra el que lee una IA en la foto de la
+          etiqueta del dron, con umbral de similitud ajustable y log de cada intento.
+        </p>
+        <div class="como-correr">
+          <strong>Cómo correrlo:</strong>
+          backend y frontend por separado (dos terminales), dentro de <code>modulo-verificacion-dron/</code>:
+          <code>cd backend && python -m uvicorn main:app --reload
+             y en otra terminal
+cd frontend && python -m http.server 5501</code>
+        </div>
+        <a class="abrir" href="http://localhost:5501" target="_blank" rel="noopener">Abrir módulo (localhost:5501)</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    Proyecto del semillero — cada módulo se ejecuta y se prueba por separado. Ver el README de cada carpeta para más detalle.
+  </footer>
+
+</section>
+
+<script>
+  // Al enviar el formulario de login, en vez de mandar los datos a algún
+  // servidor, simplemente ocultamos la pantalla 1 y mostramos la pantalla 2.
+  // preventDefault() evita que la página se recargue (comportamiento
+  // normal de un <form>), que es lo que haría que esto no funcione.
+  document.getElementById("form-login").addEventListener("submit", function (evento) {
+    evento.preventDefault();
+    document.getElementById("pantalla-login").style.display = "none";
+    document.getElementById("pantalla-modulos").style.display = "block";
+    window.scrollTo(0, 0);
+  });
+</script>
+
+</body>
+</html>

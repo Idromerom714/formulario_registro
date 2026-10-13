@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro UTM - Verificación de Dron</title>
+    <style>
+        /*
+          Estos colores NO son un cálculo mío: los saqué inspeccionando
+          con JavaScript la app de Streamlit del compañero mientras
+          corría en localhost:8501 (ver getComputedStyle de sus labels,
+          inputs y botones). Su app no tiene ni una línea de CSS propia:
+          todo esto es el tema por defecto de Streamlit.
+            - Texto/labels: rgb(49,51,63)  = #31333F (gris oscuro, NO azul)
+            - Fondo de inputs: rgb(240,242,246) = #F0F2F6, radio 8px
+            - Botón primario (type="primary"): rgb(255,75,75) = #FF4B4B
+              (rojo, el color por defecto de Streamlit — tampoco es azul)
+            - Caja de alerta informativa (st.info): fondo
+              rgba(28,131,255,.1) con texto rgb(0,84,163) = #0054A3
+          El verde/rojo de nuestros mensajes de éxito/error no estaban
+          visibles en su app en el momento de medir, así que a esos dos
+          les apliqué la misma fórmula (fondo del color al 10% de opacidad
+          + texto sólido legible del mismo tono) en vez de inventarlos
+          sueltos.
+        */
+        :root {
+            --texto: #31333f;
+            --texto-tenue: rgba(49, 51, 63, .6);
+            --fondo-campo: #f0f2f6;
+            --borde-sutil: rgba(49, 51, 63, .2);
+            --rojo: #ff4b4b;
+            --rojo-hover: #ff0000;
+            --fondo-disabled: #e6eaf1;
+            --azul-info-bg: rgba(28, 131, 255, .1);
+            --azul-info-texto: #0054a3;
+            --verde-bg: rgba(9, 171, 59, .1);
+            --verde-texto: #0d7a34;
+            --rojo-bg: rgba(255, 43, 43, .1);
+            --rojo-texto: #b91c1c;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Source Sans Pro", "Source Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+            max-width: 560px;
+            margin: 48px auto;
+            padding: 0 20px 60px;
+            color: var(--texto);
+            background: #ffffff;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0 0 6px;
+            color: var(--texto);
+        }
+        .subtitulo {
+            color: var(--texto-tenue);
+            font-size: 1rem;
+            line-height: 1.5;
+            margin: 0 0 28px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 400;
+            font-size: 1rem;
+            color: var(--texto);
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--fondo-campo);
+            border: 1px solid var(--fondo-campo);
+            border-radius: 8px;
+            font-size: .95rem;
+            color: var(--texto);
+            font-family: inherit;
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            background: #ffffff;
+            border-color: var(--rojo);
+            box-shadow: 0 0 0 3px rgba(255, 75, 75, .12);
+        }
+        select { cursor: pointer; }
+
+        /* Zona de carga de la foto: imita la caja grande de captura del
+           otro módulo (ícono + texto + botón), en vez del <input type="file">
+           desnudo de antes. El input real sigue ahí, solo que invisible;
+           la etiqueta (label) es la que abre el selector de archivos. */
+        /* La caja de carga de foto de Streamlit no tiene borde punteado:
+           es un relleno gris sólido (mismo --fondo-campo) con las
+           esquinas de arriba redondeadas, y el botón "Take Photo" pegado
+           abajo con las esquinas de abajo redondeadas. Acá lo imitamos
+           con un solo bloque gris + el botón "Elegir foto" adentro. */
+        .dropzone {
+            border-radius: 8px;
+            background: var(--fondo-campo);
+            padding: 28px 20px;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .dropzone svg { color: var(--texto-tenue); margin-bottom: 10px; }
+        .dropzone .texto-principal { font-size: .95rem; color: var(--texto); margin: 0 0 4px; }
+        .dropzone .texto-secundario { font-size: .82rem; color: var(--texto-tenue); margin: 0 0 14px; }
+        .input-archivo-oculto {
+            position: absolute;
+            width: 1px; height: 1px;
+            padding: 0; margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+        }
+        /* Botón "secundario" tal como lo pinta Streamlit por defecto:
+           blanco, borde gris sutil, SIN relleno de color. */
+        .boton-elegir-archivo {
+            display: inline-block;
+            padding: 9px 18px;
+            background: #ffffff;
+            border: 1px solid var(--borde-sutil);
+            border-radius: 8px;
+            font-size: .88rem;
+            font-weight: 400;
+            color: var(--texto);
+            cursor: pointer;
+        }
+        .boton-elegir-archivo:hover { border-color: var(--rojo); color: var(--rojo); }
+        #nombreArchivo {
+            display: block;
+            margin-top: 10px;
+            font-size: .82rem;
+            color: var(--texto-tenue);
+        }
+
+        fieldset {
+            border: 1px solid var(--borde-sutil);
+            border-radius: 8px;
+            padding: 18px 20px 4px;
+            margin: 28px 0 20px;
+        }
+        legend {
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 0 8px;
+            color: var(--texto);
+        }
+        .nota-opcional { font-weight: 400; color: var(--texto-tenue); font-size: .82rem; }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .checkbox-item input { width: auto; accent-color: var(--rojo); }
+        .checkbox-item label {
+            font-weight: 400;
+            color: var(--texto);
+            margin: 0;
+            font-size: .95rem;
+        }
+
+        /* Botón "primario" tal como lo pinta Streamlit por defecto
+           (type="primary"): relleno rojo, texto blanco, mismo radio de
+           8px que el resto de los elementos. */
+        button[type="submit"] {
+            width: 100%;
+            padding: 13px 16px;
+            background: var(--rojo);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: .95rem;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        button[type="submit"]:hover { background: var(--rojo-hover); }
+        button[type="submit"]:disabled { background: var(--fondo-disabled); color: var(--texto-tenue); cursor: not-allowed; }
+
+        #resultado {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: .9rem;
+            line-height: 1.5;
+            display: none;
+        }
+        .success { background: var(--verde-bg); color: var(--verde-texto); }
+        .error { background: var(--rojo-bg); color: var(--rojo-texto); }
+    </style>
+</head>
+<body>
+    <h1>Registro UTM Medellín</h1>
+    <p class="subtitulo">Ingresá el serial de tu dron y subí una foto nítida de la etiqueta para verificación automática.</p>
+
+    <form id="verificacionForm">
+        <div class="form-group">
+            <label for="codigo">Código (Serial)</label>
+            <input type="text" id="codigo" name="codigo" required placeholder="Ej: MDE-UTM-70341-KX">
+        </div>
+
+        <div class="form-group">
+            <label for="imagen">Foto de la etiqueta</label>
+            <div class="dropzone">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <p class="texto-principal">Subí una foto nítida de la etiqueta</p>
+                <p class="texto-secundario">JPG o PNG, máximo 10&nbsp;MB</p>
+                <label for="imagen" class="boton-elegir-archivo">Elegir foto</label>
+                <input type="file" id="imagen" name="imagen" accept="image/jpeg, image/png" required class="input-archivo-oculto">
+                <span id="nombreArchivo">Ningún archivo seleccionado</span>
+            </div>
+        </div>
+
+        <!--
+          Datos de registro del dron: categoria_uso y estado_registro ya
+          tienen lista oficial de valores (por eso son <select>
+          obligatorios). tipo_arquitectura sigue como texto libre mientras
+          no tengamos esa lista todavía.
+        -->
+        <fieldset>
+            <legend>Datos del dron <span class="nota-opcional">(los marcados con * son obligatorios; el resto, opcional por ahora)</span></legend>
+
+            <div class="form-group">
+                <label for="marca">Marca</label>
+                <input type="text" id="marca" name="marca" placeholder="Ej: DJI">
+            </div>
+            <div class="form-group">
+                <label for="modelo">Modelo</label>
+                <input type="text" id="modelo" name="modelo" placeholder="Ej: Mavic 3">
+            </div>
+            <div class="form-group">
+                <label for="tipo_arquitectura">Tipo de arquitectura / configuración</label>
+                <input type="text" id="tipo_arquitectura" name="tipo_arquitectura" placeholder="Ej: Multirotor, Ala fija, Híbrido/VTOL...">
+            </div>
+            <div class="form-group">
+                <label for="peso_vacio">Peso en vacío (kg)</label>
+                <input type="number" id="peso_vacio" name="peso_vacio" step="0.01" min="0" placeholder="Ej: 0.9">
+            </div>
+            <div class="form-group">
+                <label for="peso_mtow">Peso Máximo al Despegue — MTOW (kg)</label>
+                <input type="number" id="peso_mtow" name="peso_mtow" step="0.01" min="0" placeholder="Ej: 1.05">
+            </div>
+            <div class="form-group">
+                <label for="categoria_uso">Categoría de uso asignado *</label>
+                <select id="categoria_uso" name="categoria_uso" required>
+                    <option value="" disabled selected>Seleccioná una opción</option>
+                    <option value="Profesional">Profesional</option>
+                    <option value="Comercial">Comercial</option>
+                    <option value="Recreativo">Recreativo</option>
+                    <option value="Servicio público">Servicio público</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="estado_registro">Estado de registro operativo *</label>
+                <select id="estado_registro" name="estado_registro" required>
+                    <option value="" disabled selected>Seleccioná una opción</option>
+                    <option value="Activo">Activo</option>
+                    <option value="Inactivo">Inactivo</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Equipamiento de a bordo y conectividad</label>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="eq_gps" name="equipamiento" value="GPS">
+                    <label for="eq_gps">GPS</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="eq_eid" name="equipamiento" value="E-identificación">
+                    <label for="eq_eid">E-identificación</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="eq_m2m" name="equipamiento" value="LTE/M2M">
+                    <label for="eq_m2m">LTE/M2M</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="eq_geo" name="equipamiento" value="Geoconciencia">
+                    <label for="eq_geo">Geoconciencia</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="eq_rth" name="equipamiento" value="Return To Home">
+                    <label for="eq_rth">Return To Home</label>
+                </div>
+            </div>
+        </fieldset>
+
+        <button type="submit" id="btnEnviar">Verificar y Enviar</button>
+    </form>
+
+    <div id="resultado"></div>
+
+    <script>
+        // Referencias a los elementos del HTML con los que vamos a interactuar.
+        const form = document.getElementById("verificacionForm");
+        const resultadoDiv = document.getElementById("resultado");
+        const btnEnviar = document.getElementById("btnEnviar");
+        const inputImagen = document.getElementById("imagen");
+        const nombreArchivoSpan = document.getElementById("nombreArchivo");
+
+        // Como el <input type="file"> real queda visualmente oculto (ver
+        // .input-archivo-oculto en el CSS) y lo que el usuario ve es el
+        // botón "Elegir foto", necesitamos mostrar en algún lado qué
+        // archivo quedó seleccionado. Este listener actualiza ese texto
+        // cada vez que el usuario elige una foto nueva.
+        inputImagen.addEventListener("change", () => {
+            if (inputImagen.files.length > 0) {
+                nombreArchivoSpan.textContent = inputImagen.files[0].name;
+            } else {
+                nombreArchivoSpan.textContent = "Ningún archivo seleccionado";
+            }
+        });
+
+        // IMPORTANTE: Esta key debe coincidir con API_KEY en el .env del backend.
+        // Aclaración para cuando lo estudies: en un sitio público de verdad esto
+        // no debería ir "hardcodeado" visible en el JavaScript (cualquiera que
+        // abra las herramientas de desarrollador del navegador la puede ver).
+        // Para este prototipo local está bien así; en producción normalmente el
+        // propio backend/servidor intermedio es el que guarda este secreto.
+        const API_KEY = "sjwAeoiejf91T-Rd3tY34KPsaUOuD0xtWinG2AmUz2k";
+        const API_URL = "http://localhost:8000/api/v1/verificar-serial";
+
+        // "submit" es el evento que dispara el botón de enviar. Es "async"
+        // porque adentro usamos "await" para esperar la respuesta del backend
+        // sin congelar la página mientras tanto.
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault(); // evita que el navegador recargue la página (comportamiento por defecto de un <form>)
+            btnEnviar.disabled = true;           // evita doble clic mientras espera
+            btnEnviar.textContent = "Verificando...";
+            resultadoDiv.style.display = "none"; // oculta el resultado anterior mientras llega el nuevo
+            resultadoDiv.className = "";
+
+            // FormData arma automáticamente un multipart/form-data, igual al
+            // que espera el backend (Form(...) y File(...) en main.py).
+            const formData = new FormData();
+            formData.append("codigo", document.getElementById("codigo").value);
+            formData.append("imagen", document.getElementById("imagen").files[0]);
+
+            // Campos nuevos de registro del dron: todos opcionales, se
+            // mandan tal cual estén (si quedaron vacíos, igual se manda
+            // un string vacío y el backend lo trata como "no vino nada").
+            formData.append("marca", document.getElementById("marca").value);
+            formData.append("modelo", document.getElementById("modelo").value);
+            formData.append("tipo_arquitectura", document.getElementById("tipo_arquitectura").value);
+            formData.append("peso_vacio", document.getElementById("peso_vacio").value);
+            formData.append("peso_mtow", document.getElementById("peso_mtow").value);
+            formData.append("categoria_uso", document.getElementById("categoria_uso").value);
+            formData.append("estado_registro", document.getElementById("estado_registro").value);
+
+            // Las casillas de equipamiento: por cada una que esté marcada,
+            // se agrega otro "equipamiento" al FormData con ese mismo
+            // nombre. FastAPI, del lado del backend, los junta solo en
+            // una lista (equipamiento: list[str] = Form(...)).
+            document.querySelectorAll('input[name="equipamiento"]:checked').forEach((casilla) => {
+                formData.append("equipamiento", casilla.value);
+            });
+
+            try {
+                // fetch manda la petición HTTP. Le pasamos el header x-api-key
+                // (lo que exige get_api_key en el backend) y el formData como body.
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "x-api-key": API_KEY
+                    },
+                    body: formData
+                });
+
+                // A partir de acá, todo es: mirar el código de estado que
+                // devolvió el backend y mostrar un mensaje acorde.
+                if (response.status === 422) {
+                    // Imagen no legible (ver la regla de los 6 caracteres en main.py)
+                    mostrarResultado("La imagen no es legible o está borrosa. Por favor, suba una foto más clara.", false);
+                } else if (response.status === 400 || response.status === 403 || response.status === 500) {
+                    // 400 = archivo o dato inválido (incluye peso no numérico), 403 = x-api-key
+                    // incorrecta, 500 = falló OpenRouter u otro error interno
+                    const data = await response.json();
+                    mostrarResultado(`Error: ${data.detail || "Error del servidor"}`, false);
+                } else if (response.ok) {
+                    // 200: el backend sí pudo comparar. Ahora miramos el campo
+                    // "coincide" de la respuesta JSON para saber qué decirle al usuario.
+                    const data = await response.json();
+                    if (data.coincide) {
+                        mostrarResultado("¡Verificación exitosa! Serial confirmado. Preparando registro...", true);
+                    } else {
+                        mostrarResultado(data.mensaje || "El código escrito no coincide con la foto.", false);
+                    }
+                } else {
+                    mostrarResultado("Ocurrió un error inesperado al verificar.", false);
+                }
+            } catch (error) {
+                // Esto se dispara si ni siquiera se pudo conectar (backend apagado,
+                // CORS bloqueando la petición, sin internet, etc.) — no es un
+                // error que venga del backend, es que la petición nunca llegó.
+                mostrarResultado("No se pudo conectar con el servidor de verificación.", false);
+            } finally {
+                // "finally" corre siempre, haya salido bien o mal, para que el
+                // botón vuelva a quedar disponible para un próximo intento.
+                btnEnviar.disabled = false;
+                btnEnviar.textContent = "Verificar y Enviar";
+            }
+        });
+
+        // Función chiquita para no repetir código: pinta el mensaje y le pone
+        // la clase CSS correcta (verde "success" o rojo "error", ver el <style>).
+        function mostrarResultado(mensaje, esExito) {
+            resultadoDiv.textContent = mensaje;
+            resultadoDiv.className = esExito ? "success" : "error";
+            resultadoDiv.style.display = "block";
+        }
+    </script>
+</body>
+</html>
