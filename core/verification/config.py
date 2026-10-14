@@ -6,7 +6,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class VerificationSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
     vlm_provider: Literal["openrouter"] = "openrouter"
     # OpenRouter model identifiers commonly use the provider/model form.

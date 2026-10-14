@@ -7,3 +7,5 @@ Pillow
 pytest
 ruff
 mypy
+supabase
+psycopg[binary]
