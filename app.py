@@ -115,49 +115,64 @@ def _show_person_sheet(reader: SupabaseRecordsReader, kind: str, record_id: str)
     if kind == "pilotos":
         st.markdown("**Vínculos con organizaciones**")
         links = reader.links_for_pilot(record_id)
+        if links:
+            st.dataframe(
+                [
+                    {
+                        "Organización": (link.get("organizaciones") or {}).get(
+                            "razon_social", "Sin nombre"
+                        ),
+                        "Desde": link.get("vigente_desde"),
+                        "Hasta": link.get("vigente_hasta") or "Vigente",
+                        "Estado": link.get("estado", "").replace("_", " ").title(),
+                    }
+                    for link in links
+                ],
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.info("Sin vínculos registrados.")
+    st.markdown("**Historial de verificaciones**")
+    verifications = reader.verifications_for("piloto" if kind == "pilotos" else "tecnico", record_id)
+    if verifications:
         st.dataframe(
             [
                 {
-                    "Organización": (link.get("organizaciones") or {}).get("razon_social", "Sin nombre"),
-                    "Desde": link.get("vigente_desde"),
-                    "Hasta": link.get("vigente_hasta") or "Vigente",
-                    "Estado": link.get("estado", "").replace("_", " ").title(),
+                    "Tipo": item.get("tipo_documento"),
+                    "Estado": item.get("estado", "").replace("_", " ").title(),
+                    "Confianza": (
+                        f"{float(item['confianza']):.0%}"
+                        if item.get("confianza") is not None
+                        else "No disponible"
+                    ),
+                    "Fecha": item.get("creado_en"),
                 }
-                for link in links
+                for item in verifications
             ],
             hide_index=True,
             use_container_width=True,
-        ) if links else st.info("Sin vínculos registrados.")
-    st.markdown("**Historial de verificaciones**")
-    verifications = reader.verifications_for("piloto" if kind == "pilotos" else "tecnico", record_id)
-    st.dataframe(
-        [
-            {
-                "Tipo": item.get("tipo_documento"),
-                "Estado": item.get("estado", "").replace("_", " ").title(),
-                "Confianza": f"{float(item['confianza']):.0%}" if item.get("confianza") is not None else "No disponible",
-                "Fecha": item.get("creado_en"),
-            }
-            for item in verifications
-        ],
-        hide_index=True,
-        use_container_width=True,
-    ) if verifications else st.info("Sin verificaciones registradas.")
+        )
+    else:
+        st.info("Sin verificaciones registradas.")
     st.markdown("**Consentimientos**")
     consents = reader.consents_for("piloto" if kind == "pilotos" else "tecnico", record_id)
-    st.dataframe(
-        [
-            {
-                "Versión": item.get("texto_version"),
-                "Finalidad": item.get("finalidad"),
-                "Aceptado": item.get("aceptado_en"),
-                "Revocado": item.get("revocado_en") or "Vigente",
-            }
-            for item in consents
-        ],
-        hide_index=True,
-        use_container_width=True,
-    ) if consents else st.info("Sin consentimientos registrados.")
+    if consents:
+        st.dataframe(
+            [
+                {
+                    "Versión": item.get("texto_version"),
+                    "Finalidad": item.get("finalidad"),
+                    "Aceptado": item.get("aceptado_en"),
+                    "Revocado": item.get("revocado_en") or "Vigente",
+                }
+                for item in consents
+            ],
+            hide_index=True,
+            use_container_width=True,
+        )
+    else:
+        st.info("Sin consentimientos registrados.")
     for consent in consents:
         if consent.get("revocado_en") is None and st.button(
             "Revocar consentimiento",
@@ -325,17 +340,20 @@ def _uas_sheet(session: Session, reader: SupabaseUASReader, uas_id: str) -> None
         current = [item for item in components if item.get("retirado_en") is None]
         history = [item for item in components if item.get("retirado_en") is not None]
         st.write("Instalados actualmente")
-        st.dataframe(
-            [
-                {
-                    "Serie": (item.get("componentes") or {}).get("numero_serie"),
-                    "Tipo": (item.get("componentes") or {}).get("tipo"),
-                    "Instalado": item.get("instalado_en"),
-                }
-                for item in current
-            ],
-            hide_index=True,
-        ) if current else st.info("Sin componentes instalados.")
+        if current:
+            st.dataframe(
+                [
+                    {
+                        "Serie": (item.get("componentes") or {}).get("numero_serie"),
+                        "Tipo": (item.get("componentes") or {}).get("tipo"),
+                        "Instalado": item.get("instalado_en"),
+                    }
+                    for item in current
+                ],
+                hide_index=True,
+            )
+        else:
+            st.info("Sin componentes instalados.")
         for installation in current:
             with st.expander(
                 f"Retirar {(installation.get('componentes') or {}).get('numero_serie', 'componente')}"
@@ -366,7 +384,10 @@ def _uas_sheet(session: Session, reader: SupabaseUASReader, uas_id: str) -> None
                         except (ValueError, KeyError, psycopg.Error):
                             st.error("No fue posible retirar el componente.")
         st.write("Historial")
-        st.dataframe(history, hide_index=True) if history else st.info("Sin historial.")
+        if history:
+            st.dataframe(history, hide_index=True)
+        else:
+            st.info("Sin historial.")
         with st.expander("Instalar componente"):
             if catalog:
                 component_options = {
